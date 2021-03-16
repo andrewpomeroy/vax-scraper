@@ -17,35 +17,30 @@ async function doScrape() {
       waitUntil: 'networkidle2'
   });
   
-  // await page.waitFor(2000);
-  let elementHandle;
+  let errorElementHandle;
+  let newHandle;
   try {
-    elementHandle = await page.waitForSelector('#EndOfSurvey', { timeout: 5000 });
+    errorElementHandle = await page.waitForSelector('.openingsData.openingsNoData', { timeout: 10000 });
   } catch (err) {
-    return "Timeout on selector";
+    // if 10 seconds have passed and it doesn't find an error message ('no appointments available'), we'll try and grab the "openings" data it displays
+    try {
+      newHandle = await page.waitForSelector('.openingsData', { timeout: 10000 });
+    }
+    catch (err) {
+      // shit's just too slow; give up
+      return "Timeout on selector";
+    }
   }
 
-  const paragraphsLength = await elementHandle.$$('p');
-  if (!paragraphsLength) return 'No paragraphs';
-
-  const paragraphs = await elementHandle.$$eval('p', nodes => nodes.map(n => n.innerText))
-
-  if (paragraphs.find(x => x.indexOf('no appointments') !== -1)) {
+  // returning null means the site isn't displaying the "no openings" message, this means there are possibly openings available!
+  if (newHandle) {
     return null;
-  };
+  }
 
-  return paragraphs.join('\n');
+  // if the typical case unfolds and we're just catching the 'error' message, though it's probably going to be the "no appointments available" message, we'll log the message text to the console just in case it's something else worth seeing
+  const errorMsg = await errorElementHandle.$eval('div', el => el.innerText);
+  return errorMsg;
 
 }
 
 module.exports = doScrape;
-
-
-// await page.pdf({
-//     path: outputFileName,
-//     displayHeaderFooter: true,
-//     headerTemplate: '',
-//     footerTemplate: '',
-//     printBackground: true,
-//     format: 'A4'
-// });
